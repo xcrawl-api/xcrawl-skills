@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xcrawl Map"
+  short_description: "URL discovery and crawl scope planning for Xcrawl"
+  default_prompt: "Use Xcrawl map to discover URLs, group key paths, and propose a crawl-ready scope."

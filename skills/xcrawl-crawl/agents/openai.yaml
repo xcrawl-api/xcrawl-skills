@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xcrawl Crawl"
+  short_description: "Bulk crawl planning, execution, and async result handling"
+  default_prompt: "Design a bounded Xcrawl crawl request, track crawl_id status, and summarize final coverage."

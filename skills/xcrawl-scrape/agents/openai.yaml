@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xcrawl Scrape"
+  short_description: "Single-page extraction with sync and async scrape modes"
+  default_prompt: "Prepare an Xcrawl scrape request, select output formats, and return validated extraction results."
