@@ -1,11 +1,21 @@
-# xcrawl-skills
+# XCrawl Skills
 
-Reusable Xcrawl skill definitions for multi-agent runtimes, focused on API-first web data workflows.
+Reusable XCrawl skill definitions for multi-agent runtimes, focused on API-first web data workflows.
 Canonical repository: `https://github.com/xcrawl-api/xcrawl-skills`
 
-This repository contains skills only. It does not implement CLI behavior.
-Each skill is currently maintained as a single `SKILL.md` file.
-Skills are designed to run across different agent ecosystems, including OpenAI-based agents, Claude-based agents, and OpenClaw-style runtimes.
+English | [中文](README.zh-CN.md)
+
+## What Is XCrawl
+
+XCrawl is a web data infrastructure product for search, scraping, URL mapping, and site crawling.
+This repository provides production-oriented skill definitions that help agents call XCrawl APIs consistently.
+
+## What This Repository Provides
+
+- Ready-to-use skills for common XCrawl workflows
+- API-oriented instructions with request/response parameter documentation
+- cURL and Node examples suitable for runtime execution
+- A consistent contract for multi-agent orchestration
 
 ## Skill Catalog
 
@@ -14,47 +24,65 @@ Skills are designed to run across different agent ecosystems, including OpenAI-b
 - `xcrawl-crawl`: Bulk site crawling and async result handling workflows
 - `xcrawl-search`: Query-based discovery with location/language controls
 
-## Skill Usage Examples
+## Quick Start
 
-- `xcrawl-scrape`: "Scrape this URL in sync mode and return markdown plus links."
-- `xcrawl-map`: "Map only `/docs/` URLs under this domain with a max of 2000 links."
-- `xcrawl-crawl`: "Run a bounded crawl (depth 2, limit 100) and poll until completed."
-- `xcrawl-search`: "Search in US English for this query and return top 20 results."
+### 1. Prerequisites
 
-Detailed cURL / Node examples are documented directly in each `skills/*/SKILL.md`.
+- An XCrawl API key
+- Runtime binaries: `curl` and `node`
+- Access to this repository
 
-## Cross-Agent Compatibility
+### 2. Configure Local API Key
 
-Each skill should be executed through a runtime adapter layer.
+Create local config file:
 
-1. Normalize input from the host runtime.
+Path: `~/.xcrawl/config.json`
 
-- Convert runtime-native task format into a shared contract:
-- `goal`, `inputs`, `constraints`, `credentials_ref`, `runtime_context`
+```json
+{
+  "XCRAWL_API_KEY": "<your_api_key>"
+}
+```
 
-2. Execute Xcrawl API workflow through the skill.
+Skills in this repo are designed to read `XCRAWL_API_KEY` from this local file.
 
-- Keep business logic and API semantics inside `SKILL.md`.
-- Do not couple core logic to a specific model provider.
+### 3. Choose a Skill
 
-3. Normalize output back to the host runtime.
+Open one of:
 
-- Return a stable structure:
-- `status`
-- `request_payload`
-- `raw_response` (single endpoint) or `raw_create_response` + `raw_result_response` (async workflow)
-- `task_ids` (optional)
-- `error` (optional)
+- `skills/xcrawl-scrape/SKILL.md`
+- `skills/xcrawl-map/SKILL.md`
+- `skills/xcrawl-crawl/SKILL.md`
+- `skills/xcrawl-search/SKILL.md`
 
-Default behavior is raw passthrough: return upstream API response bodies as-is. Only summarize when the user explicitly requests a summary.
+Each skill includes:
 
-### Runtime examples
+- Applicable scenarios
+- Request parameters
+- Response parameters
+- cURL / Node examples
 
-- OpenAI/Codex: tool-driven orchestration with structured arguments
-- Claude-style agents: natural-language planner with explicit request payload control
-- OpenClaw-like runtimes: adapter translates OpenClaw task envelopes into the shared contract above
+### 4. Run Requests
 
-## Shared Xcrawl Conventions
+Use the examples in each `SKILL.md` directly, then adapt request payloads for your business scenario.
+
+## Example User Intents
+
+- "Scrape this page in sync mode and return markdown + links."
+- "Map only `/docs/` URLs under this domain with a limit of 2000."
+- "Start a bounded crawl (depth 2, limit 100) and poll until completed."
+- "Search in US English and return top 20 results for this query."
+
+## Cross-Agent Contract
+
+Each skill can be executed through a runtime adapter layer.
+
+- Input normalization: `goal`, `inputs`, `constraints`, `credentials_ref`, `runtime_context`
+- Output normalization: `status`, `request_payload`, `raw_response` or async pair, `task_ids`, `error`
+
+Default behavior is raw passthrough: return upstream API response bodies as-is.
+
+## Shared XCrawl Conventions
 
 - Base URL: `https://run.xcrawl.com`
 - Local config file: `~/.xcrawl/config.json`
@@ -65,23 +93,8 @@ Default behavior is raw passthrough: return upstream API response bodies as-is. 
   - `POST /v1/map`
   - `POST /v1/crawl` and `GET /v1/crawl/{crawl_id}`
   - `POST /v1/search`
-- Common output formats for scrape/crawl: `html`, `raw_html`, `markdown`, `links`, `summary`, `screenshot`, `json`
 
-## Validation
+## Support
 
-Validate every skill before release:
-
-- Confirm frontmatter fields are complete (`name`, `description`, `allowed-tools`, `metadata.version`).
-- Confirm `allowed-tools` only requests `curl` and `node` runtime permissions.
-- Confirm request/response parameter definitions are documented in each `SKILL.md`.
-- Confirm local config requirement is documented (`~/.xcrawl/config.json` with `XCRAWL_API_KEY`).
-
-Notes:
-
-- `SKILL.md` files are provider-agnostic core behavior.
-- Runtime adapters can be added without changing core skill behavior.
-
-## Source References
-
-- Repository: `https://github.com/xcrawl-api/xcrawl-skills`
-- Product site: `https://www.xcrawl.com/`
+- [XCrawl Homepage](https://www.xcrawl.com/)
+- [XCrawl Documentation](https://docs.xcrawl.com/)

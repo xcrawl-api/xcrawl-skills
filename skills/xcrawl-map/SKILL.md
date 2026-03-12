@@ -1,15 +1,15 @@
 ---
 name: xcrawl-map
-description: Use this skill for Xcrawl map tasks, including site URL discovery, regex filtering, scope estimation, and crawl planning before full-site crawling.
+description: Use this skill for XCrawl map tasks, including site URL discovery, regex filtering, scope estimation, and crawl planning before full-site crawling.
 allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
 metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-map","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
-# Xcrawl Map
+# XCrawl Map
 
 ## Overview
 
-This skill uses Xcrawl Map API to discover URLs for a site.
+This skill uses XCrawl Map API to discover URLs for a site.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
 ## Required Local Config

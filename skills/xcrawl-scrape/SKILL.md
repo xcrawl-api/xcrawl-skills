@@ -1,15 +1,15 @@
 ---
 name: xcrawl-scrape
-description: Use this skill for Xcrawl scrape tasks, including single-URL fetch, format selection, sync or async execution, and JSON extraction with prompt or json_schema.
+description: Use this skill for XCrawl scrape tasks, including single-URL fetch, format selection, sync or async execution, and JSON extraction with prompt or json_schema.
 allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
 metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-scrape","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
-# Xcrawl Scrape
+# XCrawl Scrape
 
 ## Overview
 
-This skill handles single-page extraction with Xcrawl Scrape APIs.
+This skill handles single-page extraction with XCrawl Scrape APIs.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
 ## Required Local Config

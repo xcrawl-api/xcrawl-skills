@@ -1,15 +1,15 @@
 ---
 name: xcrawl-crawl
-description: Use this skill for Xcrawl crawl tasks, including bulk site crawling, crawler rule design, async status polling, and delivery of crawl output for downstream scrape and search workflows.
+description: Use this skill for XCrawl crawl tasks, including bulk site crawling, crawler rule design, async status polling, and delivery of crawl output for downstream scrape and search workflows.
 allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
 metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-crawl","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
-# Xcrawl Crawl
+# XCrawl Crawl
 
 ## Overview
 
-This skill orchestrates full-site or scoped crawling with Xcrawl Crawl APIs.
+This skill orchestrates full-site or scoped crawling with XCrawl Crawl APIs.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
 ## Required Local Config

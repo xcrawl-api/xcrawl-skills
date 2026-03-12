@@ -1,15 +1,15 @@
 ---
 name: xcrawl-search
-description: Use this skill for Xcrawl search tasks, including keyword search request design, location and language controls, result analysis, and follow-up crawl or scrape planning.
+description: Use this skill for XCrawl search tasks, including keyword search request design, location and language controls, result analysis, and follow-up crawl or scrape planning.
 allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
 metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-search","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
-# Xcrawl Search
+# XCrawl Search
 
 ## Overview
 
-This skill uses Xcrawl Search API to retrieve query-based results.
+This skill uses XCrawl Search API to retrieve query-based results.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
 ## Required Local Config
