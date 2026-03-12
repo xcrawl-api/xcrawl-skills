@@ -1,8 +1,8 @@
 ---
 name: xcrawl-crawl
 description: Use this skill for Xcrawl crawl tasks, including bulk site crawling, crawler rule design, async status polling, and delivery of crawl output for downstream scrape and search workflows.
-allowed-tools: Bash(curl:*) Bash(python3:*) Bash(python:*) Bash(node:*) Bash(nodejs:*) Read Write Edit Grep
-metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-crawl","homepage":"https://www.xcrawl.com/","requires":{"env":["XCRAWL_API_KEY"],"anyBins":["curl","python3","python","node","nodejs"]},"primaryEnv":"XCRAWL_API_KEY"}}
+allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
+metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-crawl","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
 # Xcrawl Crawl
@@ -12,14 +12,24 @@ metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-crawl","homepage":"h
 This skill orchestrates full-site or scoped crawling with Xcrawl Crawl APIs.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
-## When To Use
+## Required Local Config
 
-Trigger this skill when the user asks to:
+Before using this skill, the user must create a local config file and write `XCRAWL_API_KEY` into it.
 
-- Crawl many pages from one entry URL
-- Apply include/exclude rules and depth/limit controls
-- Configure rendering, request, proxy, and output formats
-- Monitor crawl progress and fetch final result by `crawl_id`
+Path: `~/.xcrawl/config.json`
+
+```json
+{
+  "XCRAWL_API_KEY": "<your_api_key>"
+}
+```
+
+Read API key from local config file only. Do not require global environment variables.
+
+## Tool Permission Policy
+
+Request runtime permissions for `curl` and `node` only.
+Do not request Python, shell helper scripts, or other runtime permissions.
 
 ## API Surface
 
@@ -28,91 +38,162 @@ Trigger this skill when the user asks to:
 - Base URL: `https://run.xcrawl.com`
 - Required header: `Authorization: Bearer <XCRAWL_API_KEY>`
 
-## API Reference
-
-Detailed API parameter and response documentation has been moved to `references/api-parameters.md`.
-
-Use this file when you need full field-level definitions, defaults, enums, and response schemas.
-
 ## Usage Examples
 
-### Natural language examples
-
-- "Crawl this docs site with depth 2 and keep the full raw response payload."
-- "Start an async crawl and return create/result responses without summarization."
-
-### Script-based examples
-
-- Shell create crawl task: `scripts/crawl_create.sh`
-- Shell fetch crawl result: `scripts/crawl_result.sh`
-- Python create and poll: `scripts/crawl_create_and_poll.py`
-- Node create and poll: `scripts/crawl_create_and_poll.js`
-
-Run examples:
+### cURL (create + result)
 
 ```bash
-./scripts/crawl_create.sh --url "https://example.com"
-./scripts/crawl_create.sh --payload-file ./my-crawl-request.json
-./scripts/crawl_result.sh --crawl-id "<crawl_id>"
+API_KEY="$(node -e "const fs=require('fs');const p=process.env.HOME+'/.xcrawl/config.json';const k=JSON.parse(fs.readFileSync(p,'utf8')).XCRAWL_API_KEY||'';process.stdout.write(k)")"
 
-python3 ./scripts/crawl_create_and_poll.py --url "https://example.com" --max-attempts 40 --interval 3
-python3 ./scripts/crawl_create_and_poll.py --payload-json '{"url":"https://example.com","crawler":{"limit":300,"max_depth":3,"include":["/docs/.*"],"exclude":["/blog/.*"]},"request":{"locale":"ja-JP"},"output":{"formats":["markdown","links","json"]}}'
+CREATE_RESP="$(curl -sS -X POST "https://run.xcrawl.com/v1/crawl" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -d '{"url":"https://example.com","crawler":{"limit":100,"max_depth":2},"output":{"formats":["markdown","links"]}}')"
 
-node ./scripts/crawl_create_and_poll.js --payload-file ./my-crawl-request.json
+echo "$CREATE_RESP"
+
+CRAWL_ID="$(node -e 'const s=process.argv[1];const j=JSON.parse(s);process.stdout.write(j.crawl_id||"")' "$CREATE_RESP")"
+
+curl -sS -X GET "https://run.xcrawl.com/v1/crawl/${CRAWL_ID}" \
+  -H "Authorization: Bearer ${API_KEY}"
 ```
 
-For complex crawler rules or locale/device/proxy settings, use `--payload-file` or `--payload-json`.
+### Node
 
-## Resource Directories
+```bash
+node -e '
+const fs=require("fs");
+const apiKey=JSON.parse(fs.readFileSync(process.env.HOME+"/.xcrawl/config.json","utf8")).XCRAWL_API_KEY;
+const body={url:"https://example.com",crawler:{limit:300,max_depth:3,include:["/docs/.*"],exclude:["/blog/.*"]},request:{locale:"ja-JP"},output:{formats:["markdown","links","json"]}};
+fetch("https://run.xcrawl.com/v1/crawl",{
+  method:"POST",
+  headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`},
+  body:JSON.stringify(body)
+}).then(async r=>{console.log(await r.text());});
+'
+```
 
-- `scripts/`: executable helpers for repeatable crawl and polling workflows
-- `references/`: detailed crawler policy notes and API mappings
-- `assets/`: templates and reusable files for downstream outputs
+## Request Parameters
 
-Keep heavy reference content in `references/` and keep `SKILL.md` procedural.
+### Request endpoint and headers
 
-## Cross-Agent Adapter Contract
+- Endpoint: `POST https://run.xcrawl.com/v1/crawl`
+- Headers:
+- `Content-Type: application/json`
+- `Authorization: Bearer <api_key>`
 
-This skill is runtime-agnostic and should be integrated through an adapter.
+### Request body: top-level fields
 
-Adapter input contract:
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `url` | string | Yes | - | Site entry URL |
+| `crawler` | object | No | - | Crawler config |
+| `proxy` | object | No | - | Proxy config |
+| `request` | object | No | - | Request config |
+| `js_render` | object | No | - | JS rendering config |
+| `output` | object | No | - | Output config |
+| `webhook` | object | No | - | Async callback config |
 
-- `goal`: crawl objective and expected business outcome
-- `inputs`: entry URL and optional seed context
-- `constraints`: depth, limit, include/exclude patterns, policy constraints
-- `credentials_ref`: reference to API key source (never hardcode secrets)
-- `runtime_context`: runtime-specific metadata (OpenAI, Claude, OpenClaw, etc.)
+### `crawler`
 
-Adapter output contract:
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `limit` | integer | No | `100` | Max pages |
+| `include` | string[] | No | - | Include only matching URLs (regex supported) |
+| `exclude` | string[] | No | - | Exclude matching URLs (regex supported) |
+| `max_depth` | integer | No | `3` | Max depth from entry URL |
+| `include_entire_domain` | boolean | No | `false` | Crawl full site instead of only subpaths |
+| `include_subdomains` | boolean | No | `false` | Include subdomains |
+| `include_external_links` | boolean | No | `false` | Include external links |
+| `sitemaps` | boolean | No | `true` | Use site sitemap |
 
-- `status`: `completed` or `failed`
-- `request_payload`: exact request payload sent to Xcrawl
-- `raw_create_response`: raw response body from `POST /v1/crawl`
-- `raw_result_response`: raw response body from `GET /v1/crawl/{crawl_id}`
-- `task_ids`: parsed IDs when available (for example `crawl_id`)
-- `error`: transport or API error details when failed
+### `proxy`
 
-OpenClaw integration note:
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `location` | string | No | `US` | ISO-3166-1 alpha-2 country code, e.g. `US` / `JP` / `SG` |
+| `sticky_session` | string | No | Auto-generated | Sticky session ID; same ID attempts to reuse exit |
 
-- Do not rely on provider-specific function-calling assumptions.
-- Require explicit adapter mapping between OpenClaw task envelope and the contract above.
+### `request`
 
-## Request Design Checklist
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `locale` | string | No | `en-US,en;q=0.9` | Affects `Accept-Language` |
+| `device` | string | No | `desktop` | `desktop` / `mobile`; affects UA and viewport |
+| `cookies` | object map | No | - | Cookie key/value pairs |
+| `headers` | object map | No | - | Header key/value pairs |
+| `only_main_content` | boolean | No | `true` | Return main content only |
+| `block_ads` | boolean | No | `true` | Attempt to block ad resources |
+| `skip_tls_verification` | boolean | No | `true` | Skip TLS verification |
 
-1. Scope the crawl precisely.
-- `url` is required.
-- `crawler.limit`, `crawler.max_depth`, `crawler.include`, `crawler.exclude`.
-- Decide `include_entire_domain`, `include_subdomains`, `include_external_links`.
+### `js_render`
 
-2. Configure page retrieval behavior.
-- `request`: locale/device/cookies/headers/main-content preference.
-- `js_render`: render strategy and viewport.
-- `proxy`: location and sticky session when required.
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `enabled` | boolean | No | `true` | Enable browser rendering |
+| `wait_until` | string | No | `load` | `load` / `domcontentloaded` / `networkidle` |
+| `viewport.width` | integer | No | - | Viewport width (desktop `1920`, mobile `402`) |
+| `viewport.height` | integer | No | - | Viewport height (desktop `1080`, mobile `874`) |
 
-3. Define output contract.
-- `output.formats` (default is `["markdown"]`).
-- Optional `summary`, `screenshot`, and structured `json` extraction.
-- Optional async callback through `webhook`.
+### `output`
+
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `formats` | string[] | No | `["markdown"]` | Output formats |
+| `screenshot` | string | No | `viewport` | `full_page` / `viewport` (only if `formats` includes `screenshot`) |
+| `json.prompt` | string | No | - | Extraction prompt |
+| `json.json_schema` | object | No | - | JSON Schema |
+
+`output.formats` enum:
+
+- `html`
+- `raw_html`
+- `markdown`
+- `links`
+- `summary`
+- `screenshot`
+- `json`
+
+### `webhook`
+
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `url` | string | No | - | Callback URL |
+| `headers` | object map | No | - | Custom callback headers |
+| `events` | string[] | No | `["started","completed","failed"]` | Events: `started` / `completed` / `failed` |
+
+## Response Parameters
+
+### Create response (`POST /v1/crawl`)
+
+| Field | Type | Description |
+|---|---|---|
+| `crawl_id` | string | Task ID |
+| `endpoint` | string | Always `crawl` |
+| `version` | string | Version |
+| `status` | string | Always `pending` |
+
+### Result response (`GET /v1/crawl/{crawl_id}`)
+
+| Field | Type | Description |
+|---|---|---|
+| `crawl_id` | string | Task ID |
+| `endpoint` | string | Always `crawl` |
+| `version` | string | Version |
+| `status` | string | `pending` / `crawling` / `completed` / `failed` |
+| `url` | string | Entry URL |
+| `data` | object[] | Per-page result array |
+| `started_at` | string | Start time (ISO 8601) |
+| `ended_at` | string | End time (ISO 8601) |
+| `total_credits_used` | integer | Total credits used |
+
+`data[]` fields follow `output.formats`:
+
+- `html`, `raw_html`, `markdown`, `links`, `summary`, `screenshot`, `json`
+- `metadata` (page metadata)
+- `traffic_bytes`
+- `credits_used`
+- `credits_detail`
 
 ## Workflow
 
@@ -121,14 +202,12 @@ OpenClaw integration note:
 
 2. Draft a bounded crawl request.
 - Prefer explicit limits and path constraints.
-- Keep risky settings off unless explicitly requested.
 
 3. Start crawl and capture task metadata.
 - Record `crawl_id`, initial status, and request payload.
 
 4. Poll `GET /v1/crawl/{crawl_id}` until terminal state.
 - Track `pending`, `crawling`, `completed`, or `failed`.
-- Stop polling on terminal status and return the raw result response.
 
 5. Return raw create/result responses.
 - Do not synthesize derived summaries unless explicitly requested.
@@ -149,6 +228,5 @@ Do not generate summaries unless the user explicitly requests a summary.
 
 - Never run an unbounded crawl without explicit constraints.
 - Do not present speculative page counts as final coverage.
-- Do not produce CLI command flags; stay API-request oriented.
 - Do not hardcode provider-specific tool schemas in core logic.
 - Highlight policy, legal, or website-usage risks when relevant.

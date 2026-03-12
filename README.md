@@ -4,6 +4,7 @@ Reusable Xcrawl skill definitions for multi-agent runtimes, focused on API-first
 Canonical repository: `https://github.com/xcrawl-api/xcrawl-skills`
 
 This repository contains skills only. It does not implement CLI behavior.
+Each skill is currently maintained as a single `SKILL.md` file.
 Skills are designed to run across different agent ecosystems, including OpenAI-based agents, Claude-based agents, and OpenClaw-style runtimes.
 
 ## Skill Catalog
@@ -20,7 +21,7 @@ Skills are designed to run across different agent ecosystems, including OpenAI-b
 - `xcrawl-crawl`: "Run a bounded crawl (depth 2, limit 100) and poll until completed."
 - `xcrawl-search`: "Search in US English for this query and return top 20 results."
 
-Detailed cURL / Python / Node examples are split into each skill's `scripts/` directory and referenced from `skills/*/SKILL.md`.
+Detailed cURL / Node examples are documented directly in each `skills/*/SKILL.md`.
 
 ## Cross-Agent Compatibility
 
@@ -56,6 +57,8 @@ Default behavior is raw passthrough: return upstream API response bodies as-is. 
 ## Shared Xcrawl Conventions
 
 - Base URL: `https://run.xcrawl.com`
+- Local config file: `~/.xcrawl/config.json`
+- API key field in local config: `XCRAWL_API_KEY`
 - Auth header: `Authorization: Bearer <XCRAWL_API_KEY>`
 - Main endpoints:
   - `POST /v1/scrape` and `GET /v1/scrape/{scrape_id}`
@@ -66,20 +69,17 @@ Default behavior is raw passthrough: return upstream API response bodies as-is. 
 
 ## Validation
 
-Run validation for every skill:
+Validate every skill before release:
 
-```bash
-VALIDATOR="${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py"
-for d in skills/*; do
-  python3 "$VALIDATOR" "$d"
-done
-```
+- Confirm frontmatter fields are complete (`name`, `description`, `allowed-tools`, `metadata.version`).
+- Confirm `allowed-tools` only requests `curl` and `node` runtime permissions.
+- Confirm request/response parameter definitions are documented in each `SKILL.md`.
+- Confirm local config requirement is documented (`~/.xcrawl/config.json` with `XCRAWL_API_KEY`).
 
 Notes:
 
 - `SKILL.md` files are provider-agnostic core behavior.
-- `agents/openai.yaml` is UI metadata for OpenAI-style surfaces and is not the execution contract.
-- Additional runtime metadata files can be added later without changing core skill behavior.
+- Runtime adapters can be added without changing core skill behavior.
 
 ## Source References
 

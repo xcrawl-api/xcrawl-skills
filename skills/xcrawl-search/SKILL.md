@@ -1,8 +1,8 @@
 ---
 name: xcrawl-search
 description: Use this skill for Xcrawl search tasks, including keyword search request design, location and language controls, result analysis, and follow-up crawl or scrape planning.
-allowed-tools: Bash(curl:*) Bash(python3:*) Bash(python:*) Bash(node:*) Bash(nodejs:*) Read Write Edit Grep
-metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-search","homepage":"https://www.xcrawl.com/","requires":{"env":["XCRAWL_API_KEY"],"anyBins":["curl","python3","python","node","nodejs"]},"primaryEnv":"XCRAWL_API_KEY"}}
+allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
+metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-search","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
 # Xcrawl Search
@@ -12,14 +12,24 @@ metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-search","homepage":"
 This skill uses Xcrawl Search API to retrieve query-based results.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
-## When To Use
+## Required Local Config
 
-Trigger this skill when the user asks to:
+Before using this skill, the user must create a local config file and write `XCRAWL_API_KEY` into it.
 
-- Search by keyword before scraping or crawling targets
-- Narrow search by `location` and `language`
-- Get a bounded result set for lead discovery or research workflows
-- Evaluate query quality and suggest query refinements
+Path: `~/.xcrawl/config.json`
+
+```json
+{
+  "XCRAWL_API_KEY": "<your_api_key>"
+}
+```
+
+Read API key from local config file only. Do not require global environment variables.
+
+## Tool Permission Policy
+
+Request runtime permissions for `curl` and `node` only.
+Do not request Python, shell helper scripts, or other runtime permissions.
 
 ## API Surface
 
@@ -27,81 +37,70 @@ Trigger this skill when the user asks to:
 - Base URL: `https://run.xcrawl.com`
 - Required header: `Authorization: Bearer <XCRAWL_API_KEY>`
 
-## API Reference
-
-Detailed API parameter and response documentation has been moved to `references/api-parameters.md`.
-
-Use this file when you need full field-level definitions, defaults, enums, and response schemas.
-
 ## Usage Examples
 
-### Natural language examples
-
-- "Search for AI crawling APIs in US English and return the raw API response."
-- "Find pricing pages for web scraping services with `location=DE` and `language=de`."
-
-### Script-based examples
-
-- Shell search request: `scripts/search_query.sh`
-- Python search request: `scripts/search_query.py`
-- Node search request: `scripts/search_query.js`
-
-Run examples:
+### cURL
 
 ```bash
-./scripts/search_query.sh --query "AI web crawler API" --location "US" --language "en" --limit 20
-./scripts/search_query.sh --payload-file ./my-search-request.json
+API_KEY="$(node -e "const fs=require('fs');const p=process.env.HOME+'/.xcrawl/config.json';const k=JSON.parse(fs.readFileSync(p,'utf8')).XCRAWL_API_KEY||'';process.stdout.write(k)")"
 
-python3 ./scripts/search_query.py --payload-json '{"query":"web scraping pricing","location":"DE","language":"de","limit":30}'
-node ./scripts/search_query.js --payload-file ./my-search-request.json
+curl -sS -X POST "https://run.xcrawl.com/v1/search" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -d '{"query":"AI web crawler API","location":"US","language":"en","limit":20}'
 ```
 
-For complex parameters, use `--payload-file` or `--payload-json`.
+### Node
 
-## Resource Directories
+```bash
+node -e '
+const fs=require("fs");
+const apiKey=JSON.parse(fs.readFileSync(process.env.HOME+"/.xcrawl/config.json","utf8")).XCRAWL_API_KEY;
+const body={query:"web scraping pricing",location:"DE",language:"de",limit:30};
+fetch("https://run.xcrawl.com/v1/search",{
+  method:"POST",
+  headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`},
+  body:JSON.stringify(body)
+}).then(async r=>{console.log(await r.text());});
+'
+```
 
-- `scripts/`: executable helpers for query experiments and result triage
-- `references/`: ranking heuristics and query strategy notes
-- `assets/`: reusable templates for search analysis outputs
+## Request Parameters
 
-Put large guidance in `references/` to keep `SKILL.md` concise and actionable.
+### Request endpoint and headers
 
-## Cross-Agent Adapter Contract
+- Endpoint: `POST https://run.xcrawl.com/v1/search`
+- Headers:
+- `Content-Type: application/json`
+- `Authorization: Bearer <api_key>`
 
-This skill is runtime-agnostic and should be integrated through an adapter.
+### Request body: top-level fields
 
-Adapter input contract:
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `query` | string | Yes | - | Search query |
+| `location` | string | No | `US` | Location (country/city/region name or ISO code; best effort) |
+| `language` | string | No | `en` | Language (ISO 639-1) |
+| `limit` | integer | No | `10` | Max results (`1-100`) |
 
-- `goal`: search intent and downstream usage goal
-- `inputs`: user query and optional domain/topic context
-- `constraints`: location, language, limit, quality expectations
-- `credentials_ref`: reference to API key source (never hardcode secrets)
-- `runtime_context`: runtime-specific metadata (OpenAI, Claude, OpenClaw, etc.)
+## Response Parameters
 
-Adapter output contract:
+| Field | Type | Description |
+|---|---|---|
+| `search_id` | string | Task ID |
+| `endpoint` | string | Always `search` |
+| `version` | string | Version |
+| `status` | string | `completed` |
+| `query` | string | Search query |
+| `data` | object | Search result data |
+| `started_at` | string | Start time (ISO 8601) |
+| `ended_at` | string | End time (ISO 8601) |
+| `total_credits_used` | integer | Total credits used |
 
-- `status`: `completed` or `failed`
-- `request_payload`: exact request payload sent to Xcrawl
-- `raw_response`: raw response body from `POST /v1/search`
-- `error`: transport or API error details when failed
+`data` notes from current API reference:
 
-OpenClaw integration note:
-
-- Keep search request design independent from provider-specific tool schemas.
-- Use the adapter to map OpenClaw envelopes to the shared contract above.
-
-## Request Design Checklist
-
-1. Confirm search intent.
-- Informational lookup, candidate site discovery, or competitive scan.
-
-2. Set query controls explicitly.
-- `query` is required.
-- Optional: `location`, `language`, `limit`.
-- Use advanced options only when requested and supported by current docs.
-
-3. Plan downstream handoff.
-- Determine whether top results should be mapped, crawled, or scraped directly.
+- Concrete result schema is implementation-defined
+- Includes billing fields like `credits_used` and `credits_detail`
 
 ## Workflow
 
@@ -129,5 +128,4 @@ Do not generate summaries unless the user explicitly requests a summary.
 
 - Do not claim ranking guarantees that the API does not expose.
 - Do not fabricate unavailable filters or response fields.
-- Do not output CLI syntax; stay API-request oriented.
 - Do not hardcode provider-specific tool schemas in core logic.

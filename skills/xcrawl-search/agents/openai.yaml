@@ -1,4 +1,0 @@
-interface:
-  display_name: "Xcrawl Search"
-  short_description: "Keyword search with location and language controls"
-  default_prompt: "Build an Xcrawl search request and turn results into map, crawl, or scrape next steps."

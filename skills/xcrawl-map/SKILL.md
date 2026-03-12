@@ -1,8 +1,8 @@
 ---
 name: xcrawl-map
 description: Use this skill for Xcrawl map tasks, including site URL discovery, regex filtering, scope estimation, and crawl planning before full-site crawling.
-allowed-tools: Bash(curl:*) Bash(python3:*) Bash(python:*) Bash(node:*) Bash(nodejs:*) Read Write Edit Grep
-metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-map","homepage":"https://www.xcrawl.com/","requires":{"env":["XCRAWL_API_KEY"],"anyBins":["curl","python3","python","node","nodejs"]},"primaryEnv":"XCRAWL_API_KEY"}}
+allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
+metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-map","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
 # Xcrawl Map
@@ -12,14 +12,24 @@ metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-map","homepage":"htt
 This skill uses Xcrawl Map API to discover URLs for a site.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
-## When To Use
+## Required Local Config
 
-Trigger this skill when the user asks to:
+Before using this skill, the user must create a local config file and write `XCRAWL_API_KEY` into it.
 
-- List URLs under a domain before crawling
-- Estimate site size and discover high-value paths
-- Filter URLs by regex patterns
-- Decide whether to include subdomains or query-parameter URLs
+Path: `~/.xcrawl/config.json`
+
+```json
+{
+  "XCRAWL_API_KEY": "<your_api_key>"
+}
+```
+
+Read API key from local config file only. Do not require global environment variables.
+
+## Tool Permission Policy
+
+Request runtime permissions for `curl` and `node` only.
+Do not request Python, shell helper scripts, or other runtime permissions.
 
 ## API Surface
 
@@ -27,83 +37,73 @@ Trigger this skill when the user asks to:
 - Base URL: `https://run.xcrawl.com`
 - Required header: `Authorization: Bearer <XCRAWL_API_KEY>`
 
-## API Reference
-
-Detailed API parameter and response documentation has been moved to `references/api-parameters.md`.
-
-Use this file when you need full field-level definitions, defaults, enums, and response schemas.
-
 ## Usage Examples
 
-### Natural language examples
-
-- "Map all URLs under this domain and return the raw API response."
-- "Return only `/docs/` URLs with `limit=2000` and no summarization."
-
-### Script-based examples
-
-- Shell map request: `scripts/map_urls.sh`
-- Python map request: `scripts/map_urls.py`
-- Node map request: `scripts/map_urls.js`
-
-Run examples:
+### cURL
 
 ```bash
-./scripts/map_urls.sh --url "https://example.com" --filter "/docs/.*" --limit 2000
-./scripts/map_urls.sh --payload-file ./my-map-request.json
+API_KEY="$(node -e "const fs=require('fs');const p=process.env.HOME+'/.xcrawl/config.json';const k=JSON.parse(fs.readFileSync(p,'utf8')).XCRAWL_API_KEY||'';process.stdout.write(k)")"
 
-python3 ./scripts/map_urls.py --payload-json '{"url":"https://example.com","filter":"/docs/.*","limit":3000,"include_subdomains":true,"ignore_query_parameters":false}'
-node ./scripts/map_urls.js --payload-file ./my-map-request.json
+curl -sS -X POST "https://run.xcrawl.com/v1/map" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -d '{"url":"https://example.com","filter":"/docs/.*","limit":2000,"include_subdomains":true,"ignore_query_parameters":false}'
 ```
 
-For complex scope control, use `--payload-file` or `--payload-json`.
+### Node
 
-## Resource Directories
+```bash
+node -e '
+const fs=require("fs");
+const apiKey=JSON.parse(fs.readFileSync(process.env.HOME+"/.xcrawl/config.json","utf8")).XCRAWL_API_KEY;
+const body={url:"https://example.com",filter:"/docs/.*",limit:3000,include_subdomains:true,ignore_query_parameters:false};
+fetch("https://run.xcrawl.com/v1/map",{
+  method:"POST",
+  headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`},
+  body:JSON.stringify(body)
+}).then(async r=>{console.log(await r.text());});
+'
+```
 
-- `scripts/`: executable helpers for URL grouping and scope generation
-- `references/`: path taxonomy, mapping policies, and integration notes
-- `assets/`: reusable mapping templates and output artifacts
+## Request Parameters
 
-Use `references/` for deep docs and keep `SKILL.md` focused on decisions.
+### Request endpoint and headers
 
-## Cross-Agent Adapter Contract
+- Endpoint: `POST https://run.xcrawl.com/v1/map`
+- Headers:
+- `Content-Type: application/json`
+- `Authorization: Bearer <api_key>`
 
-This skill is runtime-agnostic and should be integrated through an adapter.
+### Request body: top-level fields
 
-Adapter input contract:
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `url` | string | Yes | - | Site entry URL |
+| `filter` | string | No | - | Regex filter for URLs |
+| `limit` | integer | No | `5000` | Max URLs (up to `100000`) |
+| `include_subdomains` | boolean | No | `true` | Include subdomains |
+| `ignore_query_parameters` | boolean | No | `true` | Ignore URLs with query parameters |
 
-- `goal`: mapping objective (discovery, prioritization, pre-crawl planning)
-- `inputs`: target site URL and optional domain context
-- `constraints`: filter regex, limit, subdomain/query handling
-- `credentials_ref`: reference to API key source (never hardcode secrets)
-- `runtime_context`: runtime-specific metadata (OpenAI, Claude, OpenClaw, etc.)
+## Response Parameters
 
-Adapter output contract:
+| Field | Type | Description |
+|---|---|---|
+| `map_id` | string | Task ID |
+| `endpoint` | string | Always `map` |
+| `version` | string | Version |
+| `status` | string | `completed` |
+| `url` | string | Entry URL |
+| `data` | object | URL list data |
+| `started_at` | string | Start time (ISO 8601) |
+| `ended_at` | string | End time (ISO 8601) |
+| `total_credits_used` | integer | Total credits used |
 
-- `status`: `completed` or `failed`
-- `request_payload`: exact request payload sent to Xcrawl
-- `raw_response`: raw response body from `POST /v1/map`
-- `error`: transport or API error details when failed
+`data` fields:
 
-OpenClaw integration note:
-
-- Keep the adapter responsible for task-envelope translation.
-- Keep this skill responsible for Xcrawl API semantics and request design.
-
-## Request Design Checklist
-
-1. Confirm map scope.
-- `url` is required.
-- Clarify domain boundaries and allowed URL families.
-
-2. Set precision controls.
-- `filter` for regex-based inclusion.
-- `limit` for bounded output size.
-- `include_subdomains` and `ignore_query_parameters` based on use case.
-
-3. Plan handoff target.
-- Define whether output feeds `xcrawl-crawl`, `xcrawl-scrape`, or both.
-- Call out URL groups that should be excluded from later crawling.
+- `links`: URL list
+- `total_links`: URL count
+- `credits_used`: credits used
+- `credits_detail`: credit breakdown
 
 ## Workflow
 
@@ -131,5 +131,4 @@ Do not generate summaries unless the user explicitly requests a summary.
 
 - Do not claim full site coverage if `limit` is reached.
 - Do not mix inferred URLs with returned URLs.
-- Do not convert this skill into CLI command instructions.
 - Do not hardcode provider-specific tool schemas in core logic.

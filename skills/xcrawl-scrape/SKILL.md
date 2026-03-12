@@ -1,8 +1,8 @@
 ---
 name: xcrawl-scrape
 description: Use this skill for Xcrawl scrape tasks, including single-URL fetch, format selection, sync or async execution, and JSON extraction with prompt or json_schema.
-allowed-tools: Bash(curl:*) Bash(python3:*) Bash(python:*) Bash(node:*) Bash(nodejs:*) Read Write Edit Grep
-metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-scrape","homepage":"https://www.xcrawl.com/","requires":{"env":["XCRAWL_API_KEY"],"anyBins":["curl","python3","python","node","nodejs"]},"primaryEnv":"XCRAWL_API_KEY"}}
+allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
+metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-scrape","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
 # Xcrawl Scrape
@@ -12,14 +12,24 @@ metadata: {"version":"1.0.0","openclaw":{"skillKey":"xcrawl-scrape","homepage":"
 This skill handles single-page extraction with Xcrawl Scrape APIs.
 Default behavior is raw passthrough: return upstream API response bodies as-is.
 
-## When To Use
+## Required Local Config
 
-Trigger this skill when the user asks to:
+Before using this skill, the user must create a local config file and write `XCRAWL_API_KEY` into it.
 
-- Fetch one URL and return `markdown`, `html`, `links`, `summary`, or `screenshot`
-- Extract structured JSON from one page using prompt-only or `json_schema`
-- Choose between `mode=sync` and `mode=async`
-- Poll scrape task status by `scrape_id`
+Path: `~/.xcrawl/config.json`
+
+```json
+{
+  "XCRAWL_API_KEY": "<your_api_key>"
+}
+```
+
+Read API key from local config file only. Do not require global environment variables.
+
+## Tool Permission Policy
+
+Request runtime permissions for `curl` and `node` only.
+Do not request Python, shell helper scripts, or other runtime permissions.
 
 ## API Surface
 
@@ -28,97 +38,181 @@ Trigger this skill when the user asks to:
 - Base URL: `https://run.xcrawl.com`
 - Required header: `Authorization: Bearer <XCRAWL_API_KEY>`
 
-## API Reference
-
-Detailed API parameter and response documentation has been moved to `references/api-parameters.md`.
-
-Use this file when you need full field-level definitions, defaults, enums, and response schemas.
-
 ## Usage Examples
 
-### Natural language examples
-
-- "Scrape `https://example.com` and return raw API response."
-- "Run async scrape on this product page and keep all raw result fields."
-
-### Script-based examples
-
-- Shell sync request: `scripts/scrape_sync.sh`
-- Shell async create: `scripts/scrape_async_create.sh`
-- Shell async result fetch: `scripts/scrape_async_result.sh`
-- Python sync request: `scripts/scrape_sync.py`
-- Node sync request: `scripts/scrape_sync.js`
-
-Run examples:
+### cURL (sync)
 
 ```bash
-./scripts/scrape_sync.sh --url "https://example.com"
-./scripts/scrape_sync.sh --payload-file ./my-scrape-request.json
+API_KEY="$(node -e "const fs=require('fs');const p=process.env.HOME+'/.xcrawl/config.json';const k=JSON.parse(fs.readFileSync(p,'utf8')).XCRAWL_API_KEY||'';process.stdout.write(k)")"
 
-./scripts/scrape_async_create.sh --url "https://example.com/product/1" --prompt "Extract title, price, currency, and locale."
-./scripts/scrape_async_create.sh --payload-json '{"url":"https://example.com","mode":"async","request":{"locale":"de-DE","headers":{"Accept-Language":"de-DE"}},"output":{"formats":["json"]},"json":{"prompt":"Extract title and price."}}'
-./scripts/scrape_async_result.sh --scrape-id "<scrape_id>"
-
-python3 ./scripts/scrape_sync.py --payload-json '{"url":"https://example.com","mode":"sync","request":{"locale":"fr-FR"},"output":{"formats":["markdown","links","json"]},"json":{"prompt":"Extract title and publish date."}}'
-node ./scripts/scrape_sync.js --payload-file ./my-scrape-request.json
+curl -sS -X POST "https://run.xcrawl.com/v1/scrape" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -d '{"url":"https://example.com","mode":"sync","output":{"formats":["markdown","links"]}}'
 ```
 
-For complex inputs (locale, device, headers, proxy, schema), use `--payload-file` or `--payload-json`.
+### cURL (async create + result)
 
-## Resource Directories
+```bash
+API_KEY="$(node -e "const fs=require('fs');const p=process.env.HOME+'/.xcrawl/config.json';const k=JSON.parse(fs.readFileSync(p,'utf8')).XCRAWL_API_KEY||'';process.stdout.write(k)")"
 
-- `scripts/`: executable helpers for repeatable scrape workflows
-- `references/`: long-form docs, schemas, and domain notes loaded on demand
-- `assets/`: templates and output resources used by generated artifacts
+CREATE_RESP="$(curl -sS -X POST "https://run.xcrawl.com/v1/scrape" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -d '{"url":"https://example.com/product/1","mode":"async","output":{"formats":["json"]},"json":{"prompt":"Extract title and price."}}')"
 
-Keep detailed material in `references/` instead of overloading `SKILL.md`.
+echo "$CREATE_RESP"
 
-## Cross-Agent Adapter Contract
+SCRAPE_ID="$(node -e 'const s=process.argv[1];const j=JSON.parse(s);process.stdout.write(j.scrape_id||"")' "$CREATE_RESP")"
 
-This skill is runtime-agnostic and should be integrated through an adapter.
+curl -sS -X GET "https://run.xcrawl.com/v1/scrape/${SCRAPE_ID}" \
+  -H "Authorization: Bearer ${API_KEY}"
+```
 
-Adapter input contract:
+### Node
 
-- `goal`: extraction objective and expected field-level outcome
-- `inputs`: target URL and optional page context
-- `constraints`: mode, output formats, schema strictness, quality thresholds
-- `credentials_ref`: reference to API key source (never hardcode secrets)
-- `runtime_context`: runtime-specific metadata (OpenAI, Claude, OpenClaw, etc.)
+```bash
+node -e '
+const fs=require("fs");
+const apiKey=JSON.parse(fs.readFileSync(process.env.HOME+"/.xcrawl/config.json","utf8")).XCRAWL_API_KEY;
+const body={url:"https://example.com",mode:"sync",output:{formats:["markdown","json"]},json:{prompt:"Extract title and publish date."}};
+fetch("https://run.xcrawl.com/v1/scrape",{
+  method:"POST",
+  headers:{"Content-Type":"application/json",Authorization:`Bearer ${apiKey}`},
+  body:JSON.stringify(body)
+}).then(async r=>{console.log(await r.text());});
+'
+```
 
-Adapter output contract:
+## Request Parameters
 
-- `status`: `completed` or `failed`
-- `request_payload`: exact request payload sent to Xcrawl
-- `raw_response`: raw response body for sync flow
-- `raw_create_response` and `raw_result_response`: raw response bodies for async flow
-- `task_ids`: parsed IDs when available (for example `scrape_id`)
-- `error`: transport or API error details when failed
+### Request endpoint and headers
 
-OpenClaw integration note:
+- Endpoint: `POST https://run.xcrawl.com/v1/scrape`
+- Headers:
+- `Content-Type: application/json`
+- `Authorization: Bearer <api_key>`
 
-- Keep extraction prompts and schema definitions provider-neutral.
-- Let the OpenClaw adapter handle conversion from OpenClaw task objects to this contract.
+### Request body: top-level fields
 
-## Request Design Checklist
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `url` | string | Yes | - | Target URL |
+| `mode` | string | No | `sync` | `sync` or `async` |
+| `proxy` | object | No | - | Proxy config |
+| `request` | object | No | - | Request config |
+| `js_render` | object | No | - | JS rendering config |
+| `output` | object | No | - | Output config |
+| `webhook` | object | No | - | Async webhook config (`mode=async`) |
 
-1. Confirm target and execution mode.
-- `url` is required.
-- Use `mode=sync` for immediate results.
-- Use `mode=async` for long-running pages or webhook workflows.
+### `proxy`
 
-2. Configure page fetching behavior only when needed.
-- `request`: `locale`, `device`, `cookies`, `headers`, `only_main_content`.
-- `js_render`: `enabled`, `wait_until`, viewport.
-- `proxy`: `location`, `sticky_session`.
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `location` | string | No | `US` | ISO-3166-1 alpha-2 country code, e.g. `US` / `JP` / `SG` |
+| `sticky_session` | string | No | Auto-generated | Sticky session ID; same ID attempts to reuse exit |
 
-3. Define output explicitly.
-- `output.formats` defaults to `["markdown"]`.
-- Add `json` when extraction is required.
-- Add `screenshot` and choose `output.screenshot` when visual verification is required.
+### `request`
 
-4. Define extraction contract when using JSON.
-- `json.prompt` for flexible extraction.
-- `json.json_schema` when strict structure is required.
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `locale` | string | No | `en-US,en;q=0.9` | Affects `Accept-Language` |
+| `device` | string | No | `desktop` | `desktop` / `mobile`; affects UA and viewport |
+| `cookies` | object map | No | - | Cookie key/value pairs |
+| `headers` | object map | No | - | Header key/value pairs |
+| `only_main_content` | boolean | No | `true` | Return main content only |
+| `block_ads` | boolean | No | `true` | Attempt to block ad resources |
+| `skip_tls_verification` | boolean | No | `true` | Skip TLS verification |
+
+### `js_render`
+
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `enabled` | boolean | No | `true` | Enable browser rendering |
+| `wait_until` | string | No | `load` | `load` / `domcontentloaded` / `networkidle` |
+| `viewport.width` | integer | No | - | Viewport width (desktop `1920`, mobile `402`) |
+| `viewport.height` | integer | No | - | Viewport height (desktop `1080`, mobile `874`) |
+
+### `output`
+
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `formats` | string[] | No | `["markdown"]` | Output formats |
+| `screenshot` | string | No | `viewport` | `full_page` / `viewport` (only if `formats` includes `screenshot`) |
+| `json.prompt` | string | No | - | Extraction prompt |
+| `json.json_schema` | object | No | - | JSON Schema |
+
+`output.formats` enum:
+
+- `html`
+- `raw_html`
+- `markdown`
+- `links`
+- `summary`
+- `screenshot`
+- `json`
+
+### `webhook`
+
+| Field | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `url` | string | No | - | Callback URL |
+| `headers` | object map | No | - | Custom callback headers |
+| `events` | string[] | No | `["started","completed","failed"]` | Events: `started` / `completed` / `failed` |
+
+## Response Parameters
+
+### Sync create response (`mode=sync`)
+
+| Field | Type | Description |
+|---|---|---|
+| `scrape_id` | string | Task ID |
+| `endpoint` | string | Always `scrape` |
+| `version` | string | Version |
+| `status` | string | `completed` / `failed` |
+| `url` | string | Target URL |
+| `data` | object | Result data |
+| `started_at` | string | Start time (ISO 8601) |
+| `ended_at` | string | End time (ISO 8601) |
+| `total_credits_used` | integer | Total credits used |
+
+`data` fields (based on `output.formats`):
+
+- `html`, `raw_html`, `markdown`, `links`, `summary`, `screenshot`, `json`
+- `metadata` (page metadata)
+- `traffic_bytes`
+- `credits_used`
+- `credits_detail`
+
+`credits_detail` fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `base_cost` | integer | Base scrape cost |
+| `traffic_cost` | integer | Traffic cost |
+| `json_extract_cost` | integer | JSON extraction cost |
+
+### Async create response (`mode=async`)
+
+| Field | Type | Description |
+|---|---|---|
+| `scrape_id` | string | Task ID |
+| `endpoint` | string | Always `scrape` |
+| `version` | string | Version |
+| `status` | string | Always `pending` |
+
+### Async result response (`GET /v1/scrape/{scrape_id}`)
+
+| Field | Type | Description |
+|---|---|---|
+| `scrape_id` | string | Task ID |
+| `endpoint` | string | Always `scrape` |
+| `version` | string | Version |
+| `status` | string | `pending` / `crawling` / `completed` / `failed` |
+| `url` | string | Target URL |
+| `data` | object | Same shape as sync `data` |
+| `started_at` | string | Start time (ISO 8601) |
+| `ended_at` | string | End time (ISO 8601) |
 
 ## Workflow
 
@@ -135,7 +229,6 @@ OpenClaw integration note:
 
 4. Return raw API responses directly.
 - Do not synthesize or compress fields by default.
-- Provide optional explanation only if the user asks for it.
 
 ## Output Contract
 
@@ -151,6 +244,5 @@ Do not generate summaries unless the user explicitly requests a summary.
 ## Guardrails
 
 - Do not invent unsupported output fields.
-- Do not switch to CLI command syntax or flags.
 - Do not hardcode provider-specific tool schemas in core logic.
 - Call out uncertainty when page structure is unstable.
