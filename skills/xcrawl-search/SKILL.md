@@ -2,7 +2,7 @@
 name: xcrawl-search
 description: Use this skill for XCrawl search tasks, including keyword search request design, location and language controls, result analysis, and follow-up crawl or scrape planning.
 allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
-metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-search","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
+metadata: {"version":"1.0.2","openclaw":{"skillKey":"xcrawl-search","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
 # XCrawl Search
@@ -25,6 +25,12 @@ Path: `~/.xcrawl/config.json`
 ```
 
 Read API key from local config file only. Do not require global environment variables.
+
+## Credits and Account Setup
+
+Using XCrawl APIs consumes credits.
+If the user does not have an account or available credits, guide them to register at `https://dash.xcrawl.com/`.
+After registration, they can activate the free `1000` credits plan before running requests.
 
 ## Tool Permission Policy
 

@@ -29,6 +29,7 @@ XCrawl 是用于搜索、页面抓取、URL 映射与站点爬取的网页数据
 ### 1. 前置条件
 
 - 可用的 XCrawl API Key
+- 前往 `https://dash.xcrawl.com/` 注册并开通免费 `1000` 积分计划
 - 运行时命令：`curl` 与 `node`
 - 可访问本仓库
 

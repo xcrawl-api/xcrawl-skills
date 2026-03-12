@@ -29,6 +29,7 @@ This repository provides production-oriented skill definitions that help agents 
 ### 1. Prerequisites
 
 - An XCrawl API key
+- Register at `https://dash.xcrawl.com/` and activate the free `1000` credits plan
 - Runtime binaries: `curl` and `node`
 - Access to this repository
 

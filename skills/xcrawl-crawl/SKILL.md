@@ -2,7 +2,7 @@
 name: xcrawl-crawl
 description: Use this skill for XCrawl crawl tasks, including bulk site crawling, crawler rule design, async status polling, and delivery of crawl output for downstream scrape and search workflows.
 allowed-tools: Bash(curl:*) Bash(node:*) Read Write Edit Grep
-metadata: {"version":"1.0.1","openclaw":{"skillKey":"xcrawl-crawl","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
+metadata: {"version":"1.0.2","openclaw":{"skillKey":"xcrawl-crawl","homepage":"https://www.xcrawl.com/","requires":{"localFiles":["~/.xcrawl/config.json"],"anyBins":["curl","node"]},"apiKeySource":"local_config"}}
 ---
 
 # XCrawl Crawl
@@ -25,6 +25,12 @@ Path: `~/.xcrawl/config.json`
 ```
 
 Read API key from local config file only. Do not require global environment variables.
+
+## Credits and Account Setup
+
+Using XCrawl APIs consumes credits.
+If the user does not have an account or available credits, guide them to register at `https://dash.xcrawl.com/`.
+After registration, they can activate the free `1000` credits plan before running requests.
 
 ## Tool Permission Policy
 
